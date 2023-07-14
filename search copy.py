@@ -27,6 +27,8 @@ def simulated_annealing(problem, numberiterator):
     for t in range(int(numberiterator)):
         T = problem.schedule(t)
         nextState, nextValue = problem.getNeighbors(current.path)
+        if problem.checkEnd(goalState.path):
+            return problem.goal
         
         if nextValue > goalState.value:
             problem.goal.path = nextState
@@ -42,6 +44,8 @@ def simulated_annealing(problem, numberiterator):
             if randum < p:
                 problem.current.path = nextState
                 problem.current.value = nextValue
+        for i in range(VAR.DIMENTION):
+            print(problem.goal.path[i])
         if t% 100 ==0:
             time += [t]
             value += [problem.goal.value]
@@ -52,12 +56,9 @@ def simulated_annealing(problem, numberiterator):
 
 class problem:
 
-    path = []
-    Cc = 7
-    Pp = 0.37
     def __init__(self, start, goal, schedule ):
         self.start = start
-        self.current=start
+        self.current = start
         self.goal = goal
         self.schedule = schedule
         self.numberreadyToBulb = []
@@ -65,7 +66,7 @@ class problem:
         self.numberCross = 0 # ok
         self.numberExplode= 0
         self.numberOfNumberExplode = 0
-        self.numberOfNumberCell = self.countNumberCell(start)
+        self.numberOfNumberCell = []
         
 
     def checkEnd(self,board):
@@ -82,13 +83,20 @@ class problem:
         move = self.moveToNextState(board)
         m = max(add[1], dell[1], move[1])
         if m == add[1]:
+            self.lightUp(board,[add[2]])
+            self.numberBulb += [add[2]]
             return (add[0],add[1])
         if m ==  dell[1]:
+            self.lightOff(board,[dell[2]])
+            self.numberBulb.remove(dell[2])
             return (dell[0],dell[1])
         if m == move[1]:
+            self.lightOff(board,[move[2]])
+            self.lightUp(board,[move[3]])
+            self.numberBulb.remove(move[2])
+            self.numberreadyToBulb += move[3]
             return (move[0],move[1])
-
-                
+        
     def readyToBulb(self, board):
         res = []
         for i in range(VAR.DIMENTION):
@@ -216,13 +224,13 @@ class problem:
                 j += 1
         self.numberExplode = explode
         return explode
-    def countNumberCell(self,board):
+    def countNumberCell(self, board):
         count = []
         for i in range(VAR.DIMENTION):
             for j in range(VAR.DIMENTION):
                 if 0<=board[i][j]<=5:
                     count += [(i,j)]
-        #self.numberOfNumberCell = count
+        self.numberOfNumberCell = count
         return count
     def countNumberExplode(self, board):
         explode = 0
@@ -253,14 +261,14 @@ class problem:
     def prepareToAStar(self,board):
         self.setCross(board)
         self.setBulb(board)
-    
+        self.countNumberCell(board)
         self.numberBulb = self.countBulb(board)
         
         numNewBulb = VAR.DIMENTION *2 - len(self.countBulb(board))
         newBulbLocation = self.randomeBulb(board,numNewBulb )
         for i in range(numNewBulb):
             board[newBulbLocation[i][0]][newBulbLocation[i][1]] = VAR.BULB
-            self.lightUp(board, newBulbLocation[i])
+        self.lightUp(board, newBulbLocation)
         return board
     def setBulb(self,board):
         numberCell = self.numberOfNumberCell 
@@ -342,7 +350,7 @@ class problem:
             for i in range(len(readyToBulb)):
                 tmpBoard = deepcopy(curboard)
                 
-                tmpBoard[readyToBulb[i][0]][readyToBulb[i][1]] = 8
+                tmpBoard[readyToBulb[i][0]][readyToBulb[i][1]] = VAR.BULB
                 tmpLight = self.lightUp(tmpBoard, [readyToBulb[i]])
                 h = self.heuristic(tmpBoard)
                 if h > score:
@@ -350,45 +358,38 @@ class problem:
                     res = (tmpBoard,h,readyToBulb[i])
             if res[1] > -1000:  
                 curBulb += res[2]
-        else:
-            res=(curboard,score,curBulb)
-        
         return res
     def delToNextState(self, board):
         curBoard = deepcopy(board)
-        if self.numBulb == []:
+        if self.numberBulb == []:
             self.countBulb(board)
-        curBulb = deepcopy(self.numBulb)
+        curBulb = deepcopy(self.numberBulb)
         
         res = ([],-1000,(-1,-1))
         score = -1000
-        dell = False
+        
         if len(curBulb) > 10:
             delBulb = random.sample(curBulb, 10)
             for i in range(len(delBulb)):
                 tmpBoard = deepcopy(curBoard)
-                tmpBoard[delBulb[i][0]][delBulb[i][1]] = -1
+                tmpBoard[delBulb[i][0]][delBulb[i][1]] = VAR.EMPTY
                 self.lightOff(curBoard, [delBulb[i]])
                 h = self.heuristic(tmpBoard)
                 if h > score:
                     score = h
                     res = (tmpBoard,h, delBulb[i])
-                    dell = True
-            if dell:
-                curBulb = curBulb.remove(res[2])
+                    
+            # if dell:
+            #     curBulb = curBulb.remove(res[2])
         elif len(curBulb) > 0:
             tmpBoard = deepcopy(curBoard)
             for i in range(len(curBulb)):
-                tmpBoard[curBulb[i][0]][curBulb[i][1]] = 8
-                tmpLight = self.lightOff(tmpBoard, [curBulb[i]])
+                tmpBoard[curBulb[i][0]][curBulb[i][1]] = VAR.EMPTY
+                self.lightOff(tmpBoard, [curBulb[i]])
                 h = self.heuristic(tmpBoard)
                 if h > score:
                     score = h
-                    res = (tmpBoard,h)
-                    dell = True
-        else:
-            res=(curBoard,score,curBulb)
-        
+                    res = (tmpBoard,h,curBulb[i])
         return res
             
     def moveToNextState(self,board):
@@ -397,10 +398,11 @@ class problem:
             self.numberBulb = self.countBulb(board)
         curBulb = deepcopy(self.numberBulb)
         score = -1000
-        res = ([],-1000,(-1,-1))
+        res = ([],-1000,(-1,-1),(-1,-1))
         if self.numberreadyToBulb == []:
             self.numberreadyToBulb = self.readyToBulb(board)
-        readyToBulb = deepcopy(self.numberreadyToBulb)
+        readyToBulb = self.numberreadyToBulb
+        
         if len(readyToBulb) > 0 and len(curBulb) > 0:
             for i in range(VAR.DIMENTION):    
                 if curBulb:
@@ -420,18 +422,12 @@ class problem:
                         if h > score:
                             score = h
                             res = (tmpBoard,h,Bulb[0],tmpFree[0])
-                else: 
-                    return (curBoard, score, curBulb,0)
-            return res
-        else:
-            return (curBoard, score, curBulb,0)
-
-
+        return res
 import time 
 def main():
     Cc = 7
     Pp = 0.37
-    numberiterator = 1000
+    numberiterator = 10000
     def schedule(time, C= Cc, p = Pp):
         return C/(time + 1)**p
     a = initial.StateStart()
@@ -442,7 +438,7 @@ def main():
     bestState  = state(initialPath, -1000)
     theGame = problem(initialState, bestState, schedule )
     solution = simulated_annealing(theGame, numberiterator)
-    print(solution.value)
+    print(solution.path)
     endTime = time.time() - startTime
     print('time elapsed', endTime)
 if __name__ == "__main__":
