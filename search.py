@@ -29,6 +29,9 @@ def simulated_annealing(problem, numberiterator):
             p = np.exp(E/T)
             if randum < p:
                 current = nextState
+        for i in range(VAR.DIMENTION):
+            print(current.board[i])
+        print(f'### {current.score}******T={T}******i={t} ###')
     return path
 class problem:
     def __init__(self, start , Cc, Pp, numIter ):
@@ -39,8 +42,9 @@ class problem:
         self.numIter= numIter
         
     def schedule(self, t):
-        return self.Cc/(t + 1)**self.Pp
-    
+        # return self.Cc/(t + 1)**self.Pp
+        # return 100/np.log(t + 1)
+        return 1000/np.log(t + 1)
     #---- get the candidate state
     #---- return the next state, value of next state 
     def getNeighbors(self, board):
@@ -284,7 +288,7 @@ def main():
     # print('time elapsed', endTime)
     Cc = 7
     Pp = 0.37
-    numberiterator = 30000
+    numberiterator = 100000
     
     state = initial.StateStart() 
     boardFirst = Board(state.board)
@@ -297,10 +301,10 @@ def main():
     solution = simulated_annealing(s, numberiterator)
     
     endTime = time.time() - startTime
-    for j in range(len(solution)):
-        for i in range(VAR.DIMENTION):        
-            print(solution[j].board[i])
-        print(f'-------{solution[j].score}--------')
+    # for j in range(len(solution)):
+    #     for i in range(VAR.DIMENTION):        
+    #         print(solution[j].board[i])
+    #     print(f'-------{solution[j].score}--------')
 
     print('time elapsed', endTime)
 if __name__ == "__main__":

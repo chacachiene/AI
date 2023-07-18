@@ -37,7 +37,7 @@ class Board:
                 if 0<=self.board[i][j]<=5:
                     count += [(i,j)]
         self.numberOfNumberCell = count
-        return count
+        return count 
     
     #---- count number of bulb in board
     #---- return a list of bulb's location

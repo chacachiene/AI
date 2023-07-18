@@ -1,6 +1,18 @@
+import csv
+board=[]
+d = 0
+with open('input/14normal.csv', newline='') as csvfile:
+    csvreader = csv.reader(csvfile, delimiter=',')
+    for row in csvreader:
+        intRow = [int(element) for element in row]
+        #intRow = [int(element) for element in row]
+        board += [intRow]
+    d = len(board)
+print(board)
+    
 class Define:
     def __init__(self):
-        self.DIMENTION = 7
+        self.DIMENTION = d
         self.BULB = 8
         self.EMPTY = -1
         self.CROSS = -2
@@ -10,21 +22,15 @@ class Define:
         self.NUMBER2 = 2
         self.NUMBER3 = 3
         self.NUMBER4 = 4
-        self.LIGHTED = [6,7,12,14]
+        self.LIGHTED = [7,15,23]
+        self.CROSSLIGHT = [6,14,22]
 
 class StateStart:
-    
     def __init__(self):
-        self.board = [
-            [-1,-1,5,-1,-1,-1,-1],
-            [-1,2,-1,0,-1,0,-1],
-            [-1,-1,-1,-1,-1,-1,5],
-            [-1,0,-1,1,-1,0,-1],
-            [5,-1,-1,-1,-1,-1,-1],
-            [-1,5,-1,1,-1,2,-1],
-            [-1,-1,-1,-1,5,-1,-1],
-        ]
+        self.board = board
         self.history=[]
+    
+    
     def makeMove(self, move):
         if move.type == 1:
             sq = self.board[move.row][move.col]
@@ -74,7 +80,6 @@ class StateStart:
                 if self.board[move.row][move.col] == 8:
                     self.board[move.row][move.col] = -1
                     for i in range(move.row+1, 7):
-                    
                         if self.board[i][move.col] >=0 and self.board[i][move.col]<=5: break
                         self.board[i][move.col] -=8
                     for i in range(move.col+1, 7):
@@ -93,9 +98,7 @@ class StateStart:
             elif self.board[move.row][move.col] ==7 or self.board[move.row][move.col] == 15:
                 self.board[move.row][move.col] -=1
                 self.history.append(move)
-        for i in range(7):
-            print(self.board[i])
-        print("--------------------------------------")
+
     def check(self,light):
         if light.row not in light.l or light.col not in light.l.values():
             light.l[light.row]=light.col
@@ -113,4 +116,3 @@ class checkLight():
         self.board = board
         self.row=sq[0]
         self.col=sq[1]
-        
