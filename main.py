@@ -1,130 +1,278 @@
-import pygame as p
-import initial
-import search
-import board
-import time
-WIDTH = HEIGHT = 640
+import pygame as pg
+import sys
+from pygame.locals import *
+from SETTING import *
+from UI import *
+from Game_Board import *
+import tracemalloc
 
-VAR = initial.Define()
-MAXFPS = 15
-SQSIZE = HEIGHT // VAR.DIMENTION
-'''
-LOAD IMAAGE
-'''
-IMAGE={}
-def loadImage():
-    for i in range(9):
-        IMAGE[i] = p.transform.scale(p.image.load("img/"+str(i)+".png"), (SQSIZE/2,SQSIZE/2))
-''''''     
+# Init pygame
+pg.init()
+pg.display.set_caption("Light Up")
 
+# display_screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+#Font size
+MEDIUM_FONT = pg.font.Font("OpenSans-Regular.ttf", 28)
+LARGE_FONT = pg.font.Font("OpenSans-Regular.ttf", 40)
+MOVE_FONT = pg.font.Font("OpenSans-Regular.ttf", 60)
+Font = [MEDIUM_FONT, LARGE_FONT]
 
 def main():
+
+    print('Please enter some informations before we start!')
     
-    p.init()
-    screen = p.display.set_mode((WIDTH, HEIGHT+100))
-    clock = p.time.Clock()
-    screen.fill(p.Color("white"))
-    state = initial.StateStart()
-   
-    run = True
-    sqSelected = ()
-    while run:
-        for e in p.event.get():
-            if e.type == p.QUIT:
-                run = False
-            elif e.type == p.MOUSEBUTTONDOWN:
-                x, y = p.mouse.get_pos()
-                col = x // SQSIZE
-                row = y // SQSIZE
-                # move = initial.StateMove(state.board, (row, col), e.button)
-                # state.makeMove(move)
-                # check = initial.checkLight(state.board, (row,col))
-                # if state.check(check):
-                #     changeLight(screen,state.board, (row,col))
-            elif e.type == p.KEYDOWN:
-                solve(state)         
-        drawState(screen, state)
-        clock.tick(MAXFPS)
-        p.display.flip()
-def solve(state):
-    Cc = 7
-    Pp = 0.37
-    numberiterator = 100000
+    input_dimension = ''
+    input_level = ''
+    input_name = ''
+    israndom = ''
+    valid_random = ['y', 'n']
+    valid_level = ['easy', 'normal', 'hard']
+    valid_dimension = ['7', '10', '14']
+
+    # Verify input_dimension
+    input_dimension = input(f'Your size (7, 10 or 14): ')
+    while input_dimension not in valid_dimension:
+        print('Please just enter size 7, 10 or 14')
+        input_dimension = input(f'Your size (7, 10 or 14): ')
     
-    
-    boardFirst = board.Board(state.board)
+    # Verify israndom
+    israndom=input('Do You want a random map or not? (y/n): ')
+    while israndom not in valid_random:
+      print("please just enter y or n ")
+      israndom=input('Do You want a random map or not? (y/n): ')
       
-    s = search.problem(boardFirst, Cc,Pp,numberiterator)
+    if israndom == 'n':
+        
+        # Verify input_level
+        input_level = input('Your input level (easy, normal or hard): ')
+        while input_level not in valid_level:
+            print('Please just enter level easy, normal or hard')
+            input_level = input('Your input level (easy, normal or hard): ')
+        
+        input_name = input_dimension + input_level # Final input_name
+
+    elif israndom == 'y':
+        input_name = 'random' # Final input_name = 'random'
     
-    s.prepareToSearch(boardFirst)
-    
-    startTime = time.time()
-    solution = search.simulated_annealing(s, numberiterator)
-    
-    endTime = time.time() - startTime
-    for j in range(len(solution)):
-        for i in range(VAR.DIMENTION):        
-            print(solution[j].board[i])
-        print(f'-------{solution[j].score}--------')
-    if solution[j].isSolution:
-        print('success')
-    else:
-        print('fail')
-    print('time elapsed', endTime)
+    input_dimension = int(input_dimension) # Convert to integer
+    print("Have a fun game <3 !")
+
+    #Init game
+    display_screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    MyGame = Board(Font, input_name = input_name, random_size = input_dimension) 
+    MyGame.make_map()
+    message = ""
+    found_solution = False
+
+    # For title
+    content = ["Play Again", "Solution", "User Mode", "->", "Solve All", "<-", "Undo Move", "Submit", "Clear", "DFS", "Heu"]
+    width = SCREEN_WIDTH/6
+    height = 50
+    x = (MyGame.X_BOARD + MyGame.BOARD_LENGTH*MyGame.CELL_SIZE + SCREEN_WIDTH)/2 - (width)/2
+    y = (SCREEN_HEIGHT)/2
+
+    # Game Button
+    MyGame_Button = Game_Button(x, y, width, height, display_screen, MyGame, MEDIUM_FONT)
+
+    while True:
+
+        for event in pg.event.get():
+            if event.type == QUIT:
+                pg.quit()
+                sys.exit()
+
+        display_screen.fill(BLACK)
+        MyGame.make_board_all(display_screen)
+
+        _, message = MyGame_Button.Button_creation(content[7]) # Create Submit button
+        MyGame_Button.Button_creation(content[0]) # Create Play Again button
+        MyGame_Button.Button_creation(content[8]) # Create Clear button
+
+        if not MyGame.ai_turn:
+
+            MyGame.DFS_turn = MyGame_Button.Button_creation(content[9]) # Create Solution Button (DFS)
+            MyGame.Heu_turn = MyGame_Button.Button_creation(content[10]) # Create Solution Button (Heu)
+            MyGame.ai_turn = MyGame.DFS_turn or MyGame.Heu_turn
+
+            if MyGame.ai_turn:
+                
+                if MyGame.DFS_turn:
+
+                    if not MyGame.DFS_solved:
+                        # Update UI immediately
+                        MyGame_Button.Button_Title("AI solving...")
+                        pg.display.update()
+
+                        #Solving
+                        tracemalloc.start()
+
+                        found_solution = MyGame.DFS_solver() ##### Solution function
+
+                        snapshot = tracemalloc.take_snapshot()
+                        top_stats = snapshot.statistics('lineno')
+                        tracemalloc.stop()
+                        
+                        # Get Memory statistic
+                        tracing_string = "--------Memory statistic for DFS solution--------\n"
+                        size, count, avg = 0, 0, 0
+                        for stat in top_stats:
+                            size += stat.size
+                            count += stat.count
+                        avg = int(size/count)
+                        tracing_string +=f'+ Total memory used for DFS solution: {int(size/1024)} KiB\n'
+                        tracing_string += f'+ Total number of allocations: {count}\n'
+                        tracing_string += f'+ The average memory usage per allocation: {avg} B\n'
+                        tracing_string += '--------------------------------------------------'
+
+                        ################## WRITE TO FILE ##################
+                        output_name = MyGame.get_output_name()
+                        file_out = open(f"./output/DFS{output_name}", "a")
+                        file_out.write('\n' + tracing_string)
+                        file_out.close()
+
+                        # Print Memory statistic
+                        print(tracing_string)
+
+                        # Time sleep loading the status
+                        time.sleep(0.5)
+                        solution_content = "Solution DFS found!"
+                        if not found_solution:
+                            solution_content = "No DFS solution!"
+
+                        # Update UI immediately
+                        MyGame_Button.y += 60
+                        MyGame_Button.Button_Title(solution_content)
+                        MyGame_Button.y -= 60
+                        pg.display.update()
+                        time.sleep(2)
+
+                    else:
+                        found_solution = MyGame.DFS_found_solution
+                        if not found_solution:
+                            # Update UI immediately
+                            MyGame_Button.Button_Title("No DFS solution!")
+                            pg.display.update()
+                            time.sleep(2)
+
+                        else:
+                            MyGame.Solutions = []
+                            while len(MyGame.AI_move_logs) > 0:
+                                MyGame.undo_move()
+                            # Loading DFS Solution to globel solution
+                            MyGame.Solutions += MyGame.DFS_Solutions
+                else:
+
+                    if not MyGame.Heu_solved:
+                        # Update UI immediately
+                        MyGame_Button.Button_Title("AI solving...")
+                        pg.display.update()
+
+                        #Solving
+                        tracemalloc.start()
+
+                        found_solution = MyGame.Heuristic_Solver() ##### Solution function
+
+                        snapshot = tracemalloc.take_snapshot()
+                        top_stats = snapshot.statistics('lineno')
+                        tracemalloc.stop()
+                        
+                        # Get Memory statistic
+                        tracing_string = "--------Memory statistic for Heuristic solution--------\n"
+                        size, count, avg = 0, 0, 0
+                        for stat in top_stats:
+                            size += stat.size
+                            count += stat.count
+                        avg = int(size/count)
+                        tracing_string +=f'+ Total memory used for Heuristic solution: {int(size/1024)} KiB\n'
+                        tracing_string += f'+ Total number of allocations: {count}\n'
+                        tracing_string += f'+ The average memory usage per allocation: {avg} B\n'
+                        tracing_string += '--------------------------------------------------'
+
+                        ################## WRITE TO FILE ##################
+                        output_name = MyGame.get_output_name()
+                        file_out = open(f"./output/Heuristic{output_name}", "a")
+                        file_out.write('\n' + tracing_string)
+                        file_out.close()
+
+                        # Print Memory statistic
+                        print(tracing_string)
+
+                        # Time sleep loading the status
+                        time.sleep(0.5)
+                        solution_content = "Solution Heuristic found!"
+                        if not found_solution:
+                            solution_content = "No Heuristic solution!"
+
+                        # Update UI immediately
+                        MyGame_Button.y += 60
+                        MyGame_Button.Button_Title(solution_content)
+                        MyGame_Button.y -= 60
+                        pg.display.update()
+                        time.sleep(2)
+
+                    else:
+                        found_solution = MyGame.Heu_found_solution
+                        if not found_solution:
+                            # Update UI immediately
+                            MyGame_Button.Button_Title("No Heuristic solution!")
+                            pg.display.update()
+                            time.sleep(2)
+
+                        else:
+                            MyGame.Solutions = []
+                            while len(MyGame.AI_move_logs) > 0:
+                                MyGame.undo_move()
+                            # Loading Heu Solution to globel solution
+                            MyGame.Solutions += MyGame.Heu_Solutions
+                    
+                MyGame.ai_turn = found_solution
+                continue
+
+        # AI mode
+        if MyGame.ai_turn:
+            
+            solution_content = "DFS Mode"
+            if not MyGame.DFS_turn:
+                solution_content = "Heuristic Mode"
+
+            # Update UI
+            MyGame_Button.y += 60
+            MyGame_Button.Button_Title(solution_content)
+            MyGame_Button.y -= 60
+
+            MyGame_Button.Button_creation(content[5]) # Undo Button
+            MyGame_Button.Button_creation(content[3]) # Next Button
+            MyGame_Button.Button_creation(content[4]) # Solve All Button
+            MyGame_Button.Button_creation(content[2]) # User Mode Button
+        
+        # Handle User click event
+        # Check if pieces is clicked
+        else:
+            MyGame_Button.Button_creation(content[6]) # Undo Move Button
+
+            pos = None
+            type = None
+            for event in pg.event.get():
+                if event.type == QUIT:
+                    pg.quit()
+                    sys.exit()
+                elif event.type == pg.MOUSEBUTTONDOWN:
+                    
+                    if event.button == LEFT or event.button == RIGHT:
+                        pos = pg.mouse.get_pos()
+                        type = event.button
+            
+            if pos is not None:
+                MyGame.checking_clicked(pos, type)
+            
+
+        # Update after each event
+        pg.display.update()
+        
+        if message != "":
+            time.sleep(2)
 
 
-def drawState(screen, state):
-    
-    drawBoard(screen)
-    drawPiece(screen, state.board)
-    # checkSuccess(screen, state.board)
-    
-def drawBoard(screen):
-    color = [p.Color("white"), p.Color("black")]
-    for j in range(VAR.DIMENTION):
-        for i in range(VAR.DIMENTION):
-            p.draw.rect(screen, color[0], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE))
-    for i in range(VAR.DIMENTION):
-        p.draw.line(screen, color[1], (0,i*SQSIZE), (WIDTH, i*SQSIZE),1)
-    for j in range(VAR.DIMENTION):
-        p.draw.line(screen, color[1], (j*SQSIZE,0), (j*SQSIZE, HEIGHT))
-
-    
-def drawPiece(screen, board):
-    color = {"wh": p.Color("white"), 
-             "bl": p.Color("black"),
-            "ye": p.Color("yellow"),
-    }
-    loadImage()
-    for i in range(VAR.DIMENTION):
-        for j in range(VAR.DIMENTION):
-            if board[i][j] != -1:
-                if board[i][j] in range(6):
-                    p.draw.rect(screen, color["bl"], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE))
-                    screen.blit(IMAGE[board[i][j]], p.Rect(j*SQSIZE+SQSIZE/4, i*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-                elif board[i][j] == VAR.BULB:
-                    p.draw.rect(screen, color['ye'], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE))
-                    screen.blit(IMAGE[6], p.Rect(j*SQSIZE+SQSIZE/4, i*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-                elif board[i][j] == VAR.CROSS:
-                    screen.blit(IMAGE[7], p.Rect(j*SQSIZE+SQSIZE/4, i*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-                elif board[i][j] in VAR.CROSSLIGHT:
-                    p.draw.rect(screen, color['ye'], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE))
-                    screen.blit(IMAGE[7], p.Rect(j*SQSIZE+SQSIZE/4, i*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-                elif board[i][j] in VAR.LIGHTED:
-                    p.draw.rect(screen, color['ye'], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE))
-            else:
-                p.draw.rect(screen, color['wh'], p.Rect(j*SQSIZE, i*SQSIZE, SQSIZE, SQSIZE)) 
-    for i in range(VAR.DIMENTION+1):
-        p.draw.line(screen, color['bl'], (0,i*SQSIZE), (WIDTH, i*SQSIZE),1)
-    for j in range(VAR.DIMENTION+1):
-        p.draw.line(screen, color['bl'], (j*SQSIZE,0), (j*SQSIZE, HEIGHT))   
-def changeLight(screen,board, sq):
-    for i in range(VAR.DIMENTION):
-        if board[sq[0]][i] == 8:
-            screen.blit(IMAGE[8], p.Rect(i*SQSIZE+SQSIZE/4, sq[0]*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-        if board[i][sq[1]] == 8:
-            screen.blit(IMAGE[8], p.Rect(sq[1]*SQSIZE+SQSIZE/4, i*SQSIZE +SQSIZE/4, SQSIZE, SQSIZE))
-def checkSuccess(screen, board):
-    pass
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
